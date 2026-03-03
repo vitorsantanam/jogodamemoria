@@ -1,17 +1,21 @@
 /* ==========================================
-   JOGO DA VELHA - LÓGICA DO JOGO
+   JOGO DA VELHA - LÓGICA SINGLE-PLAYER
    Dia das Mães - Interativo para Totem
+   Jogador vs Computador
    ========================================== */
 
 // ===== ESTADO DO JOGO =====
 let gameState = {
   board: Array(9).fill(null),
-  currentPlayer: "X",
   isGameOver: false,
-  scores: { X: 0, O: 0 },
+  isPlayerTurn: true,
   timeLeft: CONFIG.tempoPartida,
   timerInterval: null,
   moveCount: 0,
+  gameStarted: false,
+  autoRestartTimeout: null,
+  idleTimeout: null,
+  lastInteraction: Date.now(),
 };
 
 // Combinações de vitória
@@ -27,26 +31,28 @@ const DOM = {
   cells: document.querySelectorAll(".cell"),
   timerText: document.getElementById("timerText"),
   timerProgress: document.getElementById("timerProgress"),
-  turnIndicator: document.getElementById("turnIndicator"),
+  turnLabel: document.getElementById("turnLabel"),
   turnSymbol: document.getElementById("turnSymbol"),
-  playerXScore: document.getElementById("playerXScore"),
-  playerOScore: document.getElementById("playerOScore"),
-  playerXInfo: document.getElementById("playerXInfo"),
-  playerOInfo: document.getElementById("playerOInfo"),
-  playerXName: document.getElementById("playerXName"),
-  playerOName: document.getElementById("playerOName"),
-  playerXAvatar: document.getElementById("playerXAvatar"),
-  playerOAvatar: document.getElementById("playerOAvatar"),
+  turnIndicator: document.getElementById("turnIndicator"),
+  overlayStart: document.getElementById("overlayStart"),
   overlayWin: document.getElementById("overlayWin"),
+  overlayLose: document.getElementById("overlayLose"),
   overlayDraw: document.getElementById("overlayDraw"),
   overlayTimeout: document.getElementById("overlayTimeout"),
   winTitle: document.getElementById("winTitle"),
   winMessage: document.getElementById("winMessage"),
   winImage: document.getElementById("winImage"),
+  loseTitle: document.getElementById("loseTitle"),
+  loseMessage: document.getElementById("loseMessage"),
+  drawTitle: document.getElementById("drawTitle"),
   drawMessage: document.getElementById("drawMessage"),
   timeoutTitle: document.getElementById("timeoutTitle"),
   timeoutMessage: document.getElementById("timeoutMessage"),
   timeoutImage: document.getElementById("timeoutImage"),
+  startTitle: document.getElementById("startTitle"),
+  startMessage: document.getElementById("startMessage"),
+  startImage: document.getElementById("startImage"),
+  startIcon: document.getElementById("startIcon"),
   winLineSvg: document.getElementById("winLineSvg"),
   winLine: document.getElementById("winLine"),
   confetti: document.getElementById("confetti"),
@@ -63,46 +69,44 @@ function init() {
   applyConfig();
   setupEventListeners();
   createParticles();
-  startTimer();
-  updateTurnDisplay();
+  setupIdleWatcher();
+
+  if (CONFIG.mostrarTelaInicial) {
+    showOverlay(DOM.overlayStart);
+  } else {
+    startGame();
+  }
 }
 
 // ===== APLICAR CONFIGURAÇÕES =====
 function applyConfig() {
-  // Textos
+  // Textos do cabeçalho
   DOM.gameTitle.textContent = CONFIG.textos.titulo;
   DOM.gameSubtitle.textContent = CONFIG.textos.subtitulo;
   DOM.footerText.textContent = CONFIG.textos.rodape;
 
-  // Nomes dos jogadores
-  DOM.playerXName.textContent = CONFIG.jogadorX.nome;
-  DOM.playerOName.textContent = CONFIG.jogadorO.nome;
-
-  // Avatares
-  if (CONFIG.jogadorX.imagemAvatar) {
-    DOM.playerXAvatar.innerHTML = `<img src="${CONFIG.jogadorX.imagemAvatar}" alt="${CONFIG.jogadorX.nome}">`;
-  } else {
-    DOM.playerXAvatar.innerHTML = CONFIG.jogadorX.simbolo;
-  }
-
-  if (CONFIG.jogadorO.imagemAvatar) {
-    DOM.playerOAvatar.innerHTML = `<img src="${CONFIG.jogadorO.imagemAvatar}" alt="${CONFIG.jogadorO.nome}">`;
-  } else {
-    DOM.playerOAvatar.innerHTML = CONFIG.jogadorO.simbolo;
-  }
+  // Tela inicial
+  DOM.startTitle.textContent = CONFIG.textos.inicioTitulo;
+  DOM.startMessage.textContent = CONFIG.textos.inicioMsg;
 
   // Imagens
   if (CONFIG.imagens.banner) DOM.bannerImage.src = CONFIG.imagens.banner;
   if (CONFIG.imagens.logo) DOM.footerLogo.src = CONFIG.imagens.logo;
   if (CONFIG.imagens.vitoria) DOM.winImage.src = CONFIG.imagens.vitoria;
   if (CONFIG.imagens.tempoEsgotado) DOM.timeoutImage.src = CONFIG.imagens.tempoEsgotado;
+  if (CONFIG.imagens.inicio) DOM.startImage.src = CONFIG.imagens.inicio;
 
   // Textos dos overlays
+  DOM.winTitle.textContent = CONFIG.textos.vitoriaTitulo;
+  DOM.winMessage.innerHTML = CONFIG.textos.vitoriaMsg.replace(/\n/g, "<br>");
+  DOM.loseTitle.textContent = CONFIG.textos.derrotaTitulo;
+  DOM.loseMessage.innerHTML = CONFIG.textos.derrotaMsg.replace(/\n/g, "<br>");
+  DOM.drawTitle.textContent = CONFIG.textos.empateTitulo;
+  DOM.drawMessage.innerHTML = CONFIG.textos.empateMsg.replace(/\n/g, "<br>");
   DOM.timeoutTitle.textContent = CONFIG.textos.tempoTitulo;
   DOM.timeoutMessage.innerHTML = CONFIG.textos.tempoMsg.replace(/\n/g, "<br>");
-  DOM.drawMessage.textContent = CONFIG.textos.empateMsg;
 
-  // Timer
+  // Timer display
   DOM.timerText.textContent = CONFIG.tempoPartida;
 }
 
@@ -115,37 +119,59 @@ function setupEventListeners() {
       handleCellClick(cell);
     }, { passive: false });
   });
+
+  // Rastrear interação para idle mode
+  document.addEventListener("touchstart", registerInteraction, { passive: true });
+  document.addEventListener("click", registerInteraction);
+}
+
+// ===== COMEÇAR O JOGO =====
+function startGame() {
+  hideAllOverlays();
+  clearAutoRestart();
+  resetBoard();
+  gameState.gameStarted = true;
+  gameState.isPlayerTurn = true;
+  updateTurnDisplay();
+  startTimer();
+  registerInteraction();
 }
 
 // ===== CLIQUE NA CÉLULA =====
 function handleCellClick(cell) {
+  registerInteraction();
+
   const index = parseInt(cell.dataset.index);
 
-  // Verificar se pode jogar
-  if (gameState.board[index] !== null || gameState.isGameOver) return;
+  // Só joga se for vez do jogador, célula vazia e jogo não acabou
+  if (!gameState.isPlayerTurn || gameState.board[index] !== null || gameState.isGameOver || !gameState.gameStarted) return;
 
-  // Fazer a jogada
-  makeMove(index, gameState.currentPlayer);
+  // Fazer a jogada do jogador
+  makeMove(index, "X");
 
-  // Verificar vitória/empate
-  const winCombo = checkWin(gameState.currentPlayer);
+  // Verificar vitória do jogador
+  const winCombo = checkWin("X");
   if (winCombo) {
-    handleWin(gameState.currentPlayer, winCombo);
+    handlePlayerWin(winCombo);
     return;
   }
 
+  // Verificar empate
   if (gameState.moveCount === 9) {
     handleDraw();
     return;
   }
 
-  // Trocar jogador
-  switchPlayer();
+  // Vez do computador
+  gameState.isPlayerTurn = false;
+  updateTurnDisplay();
+  DOM.board.classList.add("locked");
 
-  // Se modo PvC e é vez do computador
-  if (CONFIG.modoJogo === "pvc" && gameState.currentPlayer === "O" && !gameState.isGameOver) {
-    setTimeout(() => computerMove(), 500);
-  }
+  setTimeout(() => {
+    if (!gameState.isGameOver) {
+      computerMove();
+    }
+  }, CONFIG.tempoRespostaPC);
 }
 
 // ===== FAZER JOGADA =====
@@ -157,7 +183,7 @@ function makeMove(index, player) {
   cell.classList.add("taken");
 
   const mark = document.createElement("div");
-  const config = player === "X" ? CONFIG.jogadorX : CONFIG.jogadorO;
+  const config = player === "X" ? CONFIG.jogador : CONFIG.computador;
 
   if (config.imagemMarca) {
     mark.className = `mark mark-${player.toLowerCase()}`;
@@ -171,22 +197,156 @@ function makeMove(index, player) {
   playSound("jogada");
 }
 
-// ===== TROCAR JOGADOR =====
-function switchPlayer() {
-  gameState.currentPlayer = gameState.currentPlayer === "X" ? "O" : "X";
-  updateTurnDisplay();
+// ===== JOGADA DO COMPUTADOR =====
+function computerMove() {
+  if (gameState.isGameOver) return;
+
+  let index;
+
+  switch (CONFIG.dificuldade) {
+    case "facil":
+      index = getEasyMove();
+      break;
+    case "dificil":
+      index = getBestMove();
+      break;
+    case "medio":
+    default:
+      index = Math.random() < 0.55 ? getBestMove() : getRandomMove();
+      break;
+  }
+
+  if (index !== null && index !== undefined) {
+    makeMove(index, "O");
+
+    // Verificar vitória do computador
+    const winCombo = checkWin("O");
+    if (winCombo) {
+      handleComputerWin(winCombo);
+      return;
+    }
+
+    // Verificar empate
+    if (gameState.moveCount === 9) {
+      handleDraw();
+      return;
+    }
+
+    // Devolver vez ao jogador
+    gameState.isPlayerTurn = true;
+    DOM.board.classList.remove("locked");
+    updateTurnDisplay();
+  }
 }
 
-// ===== ATUALIZAR DISPLAY DE TURNO =====
+// ===== IA: JOGADA FÁCIL (prioriza bloqueio, mas erra) =====
+function getEasyMove() {
+  // 30% chance de jogar aleatório puro
+  if (Math.random() < 0.3) return getRandomMove();
+
+  // Tenta bloquear jogador se possível
+  const blockMove = findWinningMove("X");
+  if (blockMove !== null && Math.random() < 0.7) return blockMove;
+
+  return getRandomMove();
+}
+
+// ===== IA: JOGADA ALEATÓRIA =====
+function getRandomMove() {
+  const available = gameState.board
+    .map((v, i) => (v === null ? i : null))
+    .filter((v) => v !== null);
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+// ===== IA: ENCONTRAR JOGADA VENCEDORA =====
+function findWinningMove(player) {
+  for (let i = 0; i < 9; i++) {
+    if (gameState.board[i] === null) {
+      gameState.board[i] = player;
+      if (checkWinBoard(gameState.board, player)) {
+        gameState.board[i] = null;
+        return i;
+      }
+      gameState.board[i] = null;
+    }
+  }
+  return null;
+}
+
+// ===== IA: MINIMAX (modo difícil) =====
+function getBestMove() {
+  // Primeiro: tenta vencer
+  const winMove = findWinningMove("O");
+  if (winMove !== null) return winMove;
+
+  // Segundo: bloqueia jogador
+  const blockMove = findWinningMove("X");
+  if (blockMove !== null) return blockMove;
+
+  // Terceiro: minimax
+  let bestScore = -Infinity;
+  let bestMove = null;
+
+  for (let i = 0; i < 9; i++) {
+    if (gameState.board[i] === null) {
+      gameState.board[i] = "O";
+      const score = minimax(gameState.board, 0, false);
+      gameState.board[i] = null;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = i;
+      }
+    }
+  }
+  return bestMove;
+}
+
+function minimax(board, depth, isMaximizing) {
+  if (checkWinBoard(board, "O")) return 10 - depth;
+  if (checkWinBoard(board, "X")) return depth - 10;
+  if (board.every((cell) => cell !== null)) return 0;
+
+  if (isMaximizing) {
+    let best = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (board[i] === null) {
+        board[i] = "O";
+        best = Math.max(best, minimax(board, depth + 1, false));
+        board[i] = null;
+      }
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (board[i] === null) {
+        board[i] = "X";
+        best = Math.min(best, minimax(board, depth + 1, true));
+        board[i] = null;
+      }
+    }
+    return best;
+  }
+}
+
+function checkWinBoard(board, player) {
+  return WIN_COMBOS.some((combo) => combo.every((i) => board[i] === player));
+}
+
+// ===== ATUALIZAR DISPLAY DE VEZ =====
 function updateTurnDisplay() {
-  const isX = gameState.currentPlayer === "X";
-
-  DOM.turnIndicator.className = `turn-indicator turn-${isX ? "x" : "o"}`;
-  const config = isX ? CONFIG.jogadorX : CONFIG.jogadorO;
-  DOM.turnSymbol.textContent = config.simbolo;
-
-  DOM.playerXInfo.classList.toggle("active", isX);
-  DOM.playerOInfo.classList.toggle("active", !isX);
+  if (gameState.isPlayerTurn) {
+    DOM.turnLabel.textContent = CONFIG.textos.suaVez;
+    DOM.turnLabel.classList.remove("waiting");
+    DOM.turnSymbol.textContent = CONFIG.jogador.simbolo;
+    DOM.turnSymbol.style.animation = "turnBounce 1s ease-in-out infinite";
+  } else {
+    DOM.turnLabel.textContent = CONFIG.textos.pcPensando;
+    DOM.turnLabel.classList.add("waiting");
+    DOM.turnSymbol.textContent = CONFIG.computador.simbolo;
+    DOM.turnSymbol.style.animation = "none";
+  }
 }
 
 // ===== VERIFICAR VITÓRIA =====
@@ -199,39 +359,39 @@ function checkWin(player) {
   return null;
 }
 
-// ===== TRATAR VITÓRIA =====
-function handleWin(player, combo) {
+// ===== VITÓRIA DO JOGADOR =====
+function handlePlayerWin(combo) {
   gameState.isGameOver = true;
   stopTimer();
 
-  // Atualizar placar
-  gameState.scores[player]++;
-  DOM.playerXScore.textContent = gameState.scores.X;
-  DOM.playerOScore.textContent = gameState.scores.O;
-
   // Destacar células vencedoras
   combo.forEach((i) => DOM.cells[i].classList.add("win-cell"));
-
-  // Desenhar linha de vitória
   drawWinLine(combo);
 
-  // Mostrar overlay após animação
-  const config = player === "X" ? CONFIG.jogadorX : CONFIG.jogadorO;
   setTimeout(() => {
-    DOM.winTitle.textContent = CONFIG.textos.vitoriaTitulo;
-    DOM.winMessage.textContent = CONFIG.textos.vitoriaMsg.replace("{jogador}", config.nome);
     showOverlay(DOM.overlayWin);
     createConfetti();
     playSound("vitoria");
+    setupAutoRestart();
   }, 800);
-
-  // Auto restart
-  if (CONFIG.autoRestartSegundos > 0) {
-    setTimeout(() => restartGame(), CONFIG.autoRestartSegundos * 1000);
-  }
 }
 
-// ===== TRATAR EMPATE =====
+// ===== DERROTA DO JOGADOR =====
+function handleComputerWin(combo) {
+  gameState.isGameOver = true;
+  stopTimer();
+
+  combo.forEach((i) => DOM.cells[i].classList.add("win-cell"));
+  drawWinLine(combo);
+
+  setTimeout(() => {
+    showOverlay(DOM.overlayLose);
+    playSound("derrota");
+    setupAutoRestart();
+  }, 800);
+}
+
+// ===== EMPATE =====
 function handleDraw() {
   gameState.isGameOver = true;
   stopTimer();
@@ -239,30 +399,23 @@ function handleDraw() {
   setTimeout(() => {
     showOverlay(DOM.overlayDraw);
     playSound("empate");
+    setupAutoRestart();
   }, 400);
-
-  if (CONFIG.autoRestartSegundos > 0) {
-    setTimeout(() => restartGame(), CONFIG.autoRestartSegundos * 1000);
-  }
 }
 
-// ===== TRATAR TEMPO ESGOTADO =====
+// ===== TEMPO ESGOTADO =====
 function handleTimeout() {
   gameState.isGameOver = true;
   stopTimer();
 
-  // Shake no tabuleiro
   DOM.board.classList.add("shake");
   setTimeout(() => DOM.board.classList.remove("shake"), 600);
 
   setTimeout(() => {
     showOverlay(DOM.overlayTimeout);
     playSound("tempoAcabou");
+    setupAutoRestart();
   }, 700);
-
-  if (CONFIG.autoRestartSegundos > 0) {
-    setTimeout(() => restartGame(), CONFIG.autoRestartSegundos * 1000);
-  }
 }
 
 // ===== TIMER =====
@@ -297,7 +450,7 @@ function updateTimerDisplay() {
 
   // Progresso circular
   const total = CONFIG.tempoPartida;
-  const circumference = 2 * Math.PI * 54; // raio = 54
+  const circumference = 2 * Math.PI * 54;
   const offset = circumference * (1 - time / total);
   DOM.timerProgress.style.strokeDashoffset = offset;
 
@@ -317,7 +470,6 @@ function drawWinLine(combo) {
   const step = cellSize + gap;
   const half = cellSize / 2;
 
-  // Mapear índice para coordenada (col, row)
   const getPos = (i) => ({
     x: (i % 3) * step + half,
     y: Math.floor(i / 3) * step + half,
@@ -339,22 +491,33 @@ function showOverlay(overlay) {
 }
 
 function hideAllOverlays() {
-  DOM.overlayWin.classList.remove("visible");
-  DOM.overlayDraw.classList.remove("visible");
-  DOM.overlayTimeout.classList.remove("visible");
+  [DOM.overlayStart, DOM.overlayWin, DOM.overlayLose, DOM.overlayDraw, DOM.overlayTimeout].forEach(o => {
+    if (o) o.classList.remove("visible");
+  });
 }
 
-// ===== REINICIAR JOGO (mantém placar) =====
+// ===== REINICIAR JOGO =====
 function restartGame() {
   hideAllOverlays();
+  clearAutoRestart();
+  resetBoard();
+  gameState.gameStarted = true;
+  gameState.isPlayerTurn = true;
+  DOM.board.classList.remove("locked");
+  updateTurnDisplay();
+  startTimer();
+  registerInteraction();
+}
+
+function resetBoard() {
   stopTimer();
 
   gameState.board = Array(9).fill(null);
-  gameState.currentPlayer = "X";
   gameState.isGameOver = false;
   gameState.moveCount = 0;
+  gameState.isPlayerTurn = true;
 
-  // Limpar tabuleiro
+  // Limpar tabuleiro visual
   DOM.cells.forEach((cell) => {
     cell.classList.remove("taken", "win-cell");
     cell.innerHTML = "";
@@ -364,114 +527,90 @@ function restartGame() {
   DOM.winLineSvg.style.display = "none";
 
   // Limpar confetti
-  DOM.confetti.innerHTML = "";
+  if (DOM.confetti) DOM.confetti.innerHTML = "";
 
-  updateTurnDisplay();
-  startTimer();
+  // Reset timer display
+  DOM.timerText.textContent = CONFIG.tempoPartida;
+  DOM.timerProgress.style.strokeDashoffset = 0;
+  DOM.timerProgress.classList.remove("warning", "danger");
 }
 
-// ===== NOVO JOGO (reseta placar) =====
-function newGame() {
-  gameState.scores = { X: 0, O: 0 };
-  DOM.playerXScore.textContent = "0";
-  DOM.playerOScore.textContent = "0";
-  restartGame();
-}
+// ===== AUTO RESTART =====
+function setupAutoRestart() {
+  if (CONFIG.autoRestartSegundos <= 0) return;
 
-// ===== IA DO COMPUTADOR =====
-function computerMove() {
-  if (gameState.isGameOver) return;
+  const seconds = CONFIG.autoRestartSegundos;
 
-  let index;
+  // Adicionar barra de progresso e texto no overlay visível
+  const visibleOverlay = document.querySelector(".overlay.visible .overlay-content");
+  if (visibleOverlay) {
+    // Remover barra existente se houver
+    const existingBar = visibleOverlay.querySelector(".auto-restart-bar");
+    if (existingBar) existingBar.remove();
+    const existingText = visibleOverlay.querySelector(".auto-restart-text");
+    if (existingText) existingText.remove();
 
-  switch (CONFIG.dificuldadePC) {
-    case "facil":
-      index = getRandomMove();
-      break;
-    case "dificil":
-      index = getBestMove();
-      break;
-    case "medio":
-    default:
-      index = Math.random() < 0.6 ? getBestMove() : getRandomMove();
-      break;
+    const barWrapper = document.createElement("div");
+    barWrapper.className = "auto-restart-bar";
+    const barProgress = document.createElement("div");
+    barProgress.className = "auto-restart-progress";
+    barProgress.style.width = "100%";
+    barWrapper.appendChild(barProgress);
+    visibleOverlay.appendChild(barWrapper);
+
+    const text = document.createElement("p");
+    text.className = "auto-restart-text";
+    text.textContent = `Reiniciando em ${seconds}s...`;
+    visibleOverlay.appendChild(text);
+
+    // Animar barra
+    let remaining = seconds;
+    const barInterval = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) {
+        clearInterval(barInterval);
+        return;
+      }
+      barProgress.style.width = ((remaining / seconds) * 100) + "%";
+      text.textContent = `Reiniciando em ${remaining}s...`;
+    }, 1000);
+
+    // Agendar restart
+    gameState.autoRestartTimeout = setTimeout(() => {
+      clearInterval(barInterval);
+      restartGame();
+    }, seconds * 1000);
   }
+}
 
-  if (index !== null && index !== undefined) {
-    makeMove(index, "O");
-
-    const winCombo = checkWin("O");
-    if (winCombo) {
-      handleWin("O", winCombo);
-      return;
-    }
-
-    if (gameState.moveCount === 9) {
-      handleDraw();
-      return;
-    }
-
-    switchPlayer();
+function clearAutoRestart() {
+  if (gameState.autoRestartTimeout) {
+    clearTimeout(gameState.autoRestartTimeout);
+    gameState.autoRestartTimeout = null;
   }
 }
 
-function getRandomMove() {
-  const available = gameState.board
-    .map((v, i) => (v === null ? i : null))
-    .filter((v) => v !== null);
-  return available[Math.floor(Math.random() * available.length)];
-}
+// ===== IDLE / ATTRACT MODE =====
+function setupIdleWatcher() {
+  if (CONFIG.idleTimeoutSegundos <= 0) return;
 
-function getBestMove() {
-  // Minimax simplificado
-  let bestScore = -Infinity;
-  let bestMove = null;
-
-  for (let i = 0; i < 9; i++) {
-    if (gameState.board[i] === null) {
-      gameState.board[i] = "O";
-      const score = minimax(gameState.board, 0, false);
-      gameState.board[i] = null;
-      if (score > bestScore) {
-        bestScore = score;
-        bestMove = i;
+  setInterval(() => {
+    const elapsed = (Date.now() - gameState.lastInteraction) / 1000;
+    if (elapsed >= CONFIG.idleTimeoutSegundos && gameState.gameStarted) {
+      // Voltar à tela inicial
+      gameState.gameStarted = false;
+      hideAllOverlays();
+      clearAutoRestart();
+      resetBoard();
+      if (CONFIG.mostrarTelaInicial) {
+        showOverlay(DOM.overlayStart);
       }
     }
-  }
-  return bestMove;
+  }, 5000);
 }
 
-function minimax(board, depth, isMaximizing) {
-  // Verificar estados terminais
-  if (checkWinBoard(board, "O")) return 10 - depth;
-  if (checkWinBoard(board, "X")) return depth - 10;
-  if (board.every((cell) => cell !== null)) return 0;
-
-  if (isMaximizing) {
-    let best = -Infinity;
-    for (let i = 0; i < 9; i++) {
-      if (board[i] === null) {
-        board[i] = "O";
-        best = Math.max(best, minimax(board, depth + 1, false));
-        board[i] = null;
-      }
-    }
-    return best;
-  } else {
-    let best = Infinity;
-    for (let i = 0; i < 9; i++) {
-      if (board[i] === null) {
-        board[i] = "X";
-        best = Math.min(best, minimax(board, depth + 1, true));
-        board[i] = null;
-      }
-    }
-    return best;
-  }
-}
-
-function checkWinBoard(board, player) {
-  return WIN_COMBOS.some((combo) => combo.every((i) => board[i] === player));
+function registerInteraction() {
+  gameState.lastInteraction = Date.now();
 }
 
 // ===== CONFETTI =====
@@ -480,7 +619,7 @@ function createConfetti() {
   const container = DOM.confetti;
   container.innerHTML = "";
 
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 80; i++) {
     const piece = document.createElement("div");
     piece.className = "confetti-piece";
     piece.style.left = Math.random() * 100 + "%";
@@ -520,7 +659,7 @@ function playSound(type) {
   try {
     const audio = new Audio(soundPath);
     audio.volume = 0.5;
-    audio.play().catch(() => {}); // Silent fail (autoplay policy)
+    audio.play().catch(() => {});
   } catch (e) {
     // Silenciar erros de áudio
   }
@@ -529,7 +668,7 @@ function playSound(type) {
 // ===== INICIAR QUANDO DOM PRONTO =====
 document.addEventListener("DOMContentLoaded", init);
 
-// ===== PREVENIR SCROLL E ZOOM EM TELA TOUCH =====
+// ===== PREVENIR SCROLL E ZOOM EM TOUCH =====
 document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 document.addEventListener("gesturestart", (e) => e.preventDefault());
 document.addEventListener("gesturechange", (e) => e.preventDefault());

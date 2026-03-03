@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0">
+  <title>Jogo da Velha - Dia das Mães</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app" class="container">
+    
+    <!-- ===== PARTÍCULAS DECORATIVAS ===== -->
+    <div class="particles" id="particles"></div>
+
+    <!-- ===== CABEÇALHO ===== -->
+    <header class="header">
+      <div class="header-decoration">
+        <span class="heart">&#10084;</span>
+        <span class="flower">&#10047;</span>
+        <span class="heart">&#10084;</span>
+      </div>
+      <h1 class="title" id="gameTitle">Feliz Dia das Mães!</h1>
+      <p class="subtitle" id="gameSubtitle">Jogue e divirta-se! 💐</p>
+      <div class="header-decoration">
+        <span class="flower">&#10047;</span>
+        <span class="heart">&#10084;</span>
+        <span class="flower">&#10047;</span>
+      </div>
+    </header>
+
+    <!-- ===== ÁREA DE IMAGEM PERSONALIZADA (BANNER/LOGO) ===== -->
+    <div class="banner-area" id="bannerArea">
+      <img id="bannerImage" src="images/banner.png" alt="Banner Dia das Mães" onerror="this.style.display='none'">
+    </div>
+
+    <!-- ===== TIMER ===== -->
+    <div class="timer-section">
+      <div class="timer-container">
+        <div class="timer-ring" id="timerRing">
+          <svg viewBox="0 0 120 120">
+            <circle class="timer-bg" cx="60" cy="60" r="54"/>
+            <circle class="timer-progress" id="timerProgress" cx="60" cy="60" r="54"/>
+          </svg>
+          <div class="timer-text" id="timerText">60</div>
+        </div>
+        <span class="timer-label">segundos</span>
+      </div>
+    </div>
+
+    <!-- ===== STATUS DO JOGO ===== -->
+    <div class="status-bar">
+      <div class="player-info player-x" id="playerXInfo">
+        <div class="player-avatar" id="playerXAvatar">
+          <img src="images/jogador_x.png" alt="Jogador X" onerror="this.parentElement.innerHTML='&#10084;'">
+        </div>
+        <span class="player-name" id="playerXName">Jogador 1</span>
+        <span class="player-score" id="playerXScore">0</span>
+      </div>
+      <div class="turn-indicator" id="turnIndicator">
+        <span id="turnText">Vez de</span>
+        <span class="turn-symbol" id="turnSymbol">&#10084;</span>
+      </div>
+      <div class="player-info player-o" id="playerOInfo">
+        <div class="player-avatar" id="playerOAvatar">
+          <img src="images/jogador_o.png" alt="Jogador O" onerror="this.parentElement.innerHTML='&#10047;'">
+        </div>
+        <span class="player-name" id="playerOName">Jogador 2</span>
+        <span class="player-score" id="playerOScore">0</span>
+      </div>
+    </div>
+
+    <!-- ===== TABULEIRO ===== -->
+    <div class="board-wrapper">
+      <div class="board" id="board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+      </div>
+      <!-- Linha de vitória animada -->
+      <svg class="win-line-svg" id="winLineSvg" viewBox="0 0 600 600">
+        <line id="winLine" x1="0" y1="0" x2="0" y2="0"/>
+      </svg>
+    </div>
+
+    <!-- ===== BOTÕES ===== -->
+    <div class="actions">
+      <button class="btn btn-restart" id="btnRestart" onclick="restartGame()">
+        <span class="btn-icon">&#8635;</span> Recomeçar
+      </button>
+      <button class="btn btn-new-game" id="btnNewGame" onclick="newGame()">
+        <span class="btn-icon">&#9733;</span> Novo Jogo
+      </button>
+    </div>
+
+    <!-- ===== RODAPÉ ===== -->
+    <footer class="footer">
+      <img id="footerLogo" src="images/logo.png" alt="Logo" class="footer-logo" onerror="this.style.display='none'">
+      <p class="footer-text" id="footerText">Com carinho para as melhores mães! 💖</p>
+    </footer>
+
+    <!-- ===== OVERLAY: VITÓRIA ===== -->
+    <div class="overlay" id="overlayWin">
+      <div class="overlay-content overlay-win">
+        <div class="confetti" id="confetti"></div>
+        <div class="overlay-icon">🎉</div>
+        <h2 class="overlay-title" id="winTitle">Parabéns!</h2>
+        <p class="overlay-message" id="winMessage">Você venceu!</p>
+        <img class="overlay-image" id="winImage" src="images/vitoria.png" alt="Vitória" onerror="this.style.display='none'">
+        <button class="btn btn-overlay" onclick="restartGame()">
+          <span class="btn-icon">&#8635;</span> Jogar Novamente
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== OVERLAY: EMPATE ===== -->
+    <div class="overlay" id="overlayDraw">
+      <div class="overlay-content overlay-draw">
+        <div class="overlay-icon">🤝</div>
+        <h2 class="overlay-title">Empate!</h2>
+        <p class="overlay-message" id="drawMessage">Vocês jogaram muito bem! Tentem novamente! 😊</p>
+        <button class="btn btn-overlay" onclick="restartGame()">
+          <span class="btn-icon">&#8635;</span> Jogar Novamente
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== OVERLAY: TEMPO ESGOTADO ===== -->
+    <div class="overlay" id="overlayTimeout">
+      <div class="overlay-content overlay-timeout">
+        <div class="overlay-icon">⏰</div>
+        <h2 class="overlay-title" id="timeoutTitle">Que pena, o tempo acabou!</h2>
+        <p class="overlay-message" id="timeoutMessage">Mas não fique triste! 😊<br>Tente novamente e mostre que você é craque!</p>
+        <img class="overlay-image" id="timeoutImage" src="images/tempo_esgotado.png" alt="Tempo Esgotado" onerror="this.style.display='none'">
+        <button class="btn btn-overlay" onclick="restartGame()">
+          <span class="btn-icon">&#8635;</span> Tentar Novamente
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

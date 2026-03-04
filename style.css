@@ -1,7 +1,7 @@
 /* ==========================================
    JOGO DA MEMÓRIA – DIA DAS MULHERES
    Layout 100 % viewport (sem scroll, sem zoom)
-   Proporção ideal: 1080 × 1920 (9:16)
+   Proporção ideal: 9:16
    Funciona em qualquer tela mobile / desktop
    ========================================== */
 
@@ -39,28 +39,46 @@
   --raio-card: 12px;
   --anim: .45s;
   --bounce: cubic-bezier(.68,-.55,.265,1.55);
+
+  /* Altura real da viewport (fallback p/ navegadores antigos) */
+  --vh-real: 100vh;
+}
+
+/* Suporte a dvh (dynamic viewport height) — resolve a barra do navegador mobile */
+@supports (height: 100dvh) {
+  :root { --vh-real: 100dvh; }
 }
 
 /* ===== RESET ===== */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
-html,body{
+html{
   width:100%;height:100%;
+  overflow:hidden;
+}
+
+body{
+  width:100%;
+  height:100%;
+  height:var(--vh-real);
   overflow:hidden;
   -webkit-user-select:none;user-select:none;
   -webkit-tap-highlight-color:transparent;
   touch-action:manipulation;
-}
-
-body{
   font-family:var(--fonte-corpo);
   background:var(--cor-fundo);
   color:var(--cor-texto);
 }
 
+/* Impede qualquer imagem de estourar o viewport */
+img{max-width:100%;height:auto}
+
 /* ===== APP – ocupa 100 % da viewport ===== */
 #app{
-  width:100vw;height:100vh;
+  width:100%;
+  height:100%;
+  height:var(--vh-real);
+  max-width:100%;
   display:flex;flex-direction:column;
   align-items:center;
   position:relative;
@@ -71,7 +89,7 @@ body{
 .particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0}
 .particle{position:absolute;opacity:0;animation:floatP linear infinite;font-size:1.4rem}
 @keyframes floatP{
-  0%{opacity:0;transform:translateY(100vh) rotate(0) scale(.5)}
+  0%{opacity:0;transform:translateY(var(--vh-real)) rotate(0) scale(.5)}
   10%{opacity:.55}90%{opacity:.55}
   100%{opacity:0;transform:translateY(-20vh) rotate(360deg) scale(1)}
 }
@@ -81,12 +99,15 @@ body{
   flex:0 0 auto;
   width:100%;
   display:flex;justify-content:center;align-items:center;
-  padding:1.2vh 4vw .4vh;
+  padding:1vh 4% .4vh;
   z-index:1;
 }
 .banner-img{
+  display:block;
   max-width:72%;
   max-height:10vh;
+  width:auto;
+  height:auto;
   object-fit:contain;
   filter:drop-shadow(0 2px 8px rgba(0,0,0,.12));
 }
@@ -108,8 +129,8 @@ body{
 }
 .timer-ring{
   position:relative;
-  width:clamp(54px,9vh,100px);
-  height:clamp(54px,9vh,100px);
+  width:clamp(48px,8vh,90px);
+  height:clamp(48px,8vh,90px);
 }
 .timer-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
 .timer-bg{fill:none;stroke:rgba(255,255,255,.3);stroke-width:8}
@@ -128,12 +149,12 @@ body{
   position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
   font-family:var(--fonte-titulo);
-  font-size:clamp(1.3rem,4vh,2.4rem);
+  font-size:clamp(1.1rem,3.5vh,2.2rem);
   font-weight:800;color:var(--cor-texto-claro);
   text-shadow:0 1px 4px rgba(0,0,0,.18);
 }
 .timer-label{
-  font-size:.7rem;font-weight:600;
+  font-size:.65rem;font-weight:600;
   color:rgba(255,255,255,.75);
   text-transform:uppercase;letter-spacing:2px;
 }
@@ -144,17 +165,17 @@ body{
   display:flex;align-items:center;justify-content:center;
   width:100%;
   min-height:0;          /* impede estouro do flex */
-  padding:1vh 0;
+  padding:0.8vh 0;
   z-index:1;
+  overflow:hidden;
 }
 .board{
-  /* 70 % da largura, máximo 80 % da altura */
-  width:70vw;
-  max-height:62vh;
+  width:min(70vw, 95%);
+  max-height:60vh;
   display:grid;
   grid-template-columns:repeat(3,1fr);
   grid-template-rows:repeat(4,1fr);
-  gap:clamp(6px,1.2vw,14px);
+  gap:clamp(4px,1vw,12px);
   aspect-ratio:3/4;       /* mantém 3×4 proporcional */
 }
 
@@ -192,7 +213,7 @@ body{
 }
 .card-back-label{
   font-family:var(--fonte-titulo);
-  font-size:clamp(1.6rem,4vw,3rem);
+  font-size:clamp(1.4rem,3.5vw,2.8rem);
   font-weight:800;
   color:rgba(255,255,255,.92);
   text-shadow:0 2px 4px rgba(0,0,0,.15);
@@ -225,15 +246,15 @@ body{
 /* ===== BOTÃO ===== */
 .actions{
   flex:0 0 auto;
-  padding:.8vh 0;
+  padding:.6vh 0;
   z-index:1;
 }
 .btn{
   font-family:var(--fonte-titulo);
-  font-size:clamp(1rem,2.5vw,1.5rem);
+  font-size:clamp(.9rem,2.2vw,1.4rem);
   font-weight:700;
   border:none;border-radius:50px;
-  padding:.9em 2.2em;
+  padding:.7em 2em;
   color:var(--cor-texto-claro);
   background:var(--cor-btn);
   box-shadow:0 4px 14px rgba(0,0,0,.15);
@@ -241,7 +262,7 @@ body{
   transition:transform .25s,box-shadow .25s;
 }
 .btn:active{transform:scale(.96)}
-.btn-big{font-size:clamp(1.2rem,3vw,1.8rem);padding:1em 2.6em;margin-top:1.2vh}
+.btn-big{font-size:clamp(1.1rem,2.8vw,1.6rem);padding:.9em 2.4em;margin-top:1vh}
 .pulse{animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 4px 14px rgba(0,0,0,.15)}50%{transform:scale(1.05);box-shadow:0 8px 28px var(--cor-sombra)}}
 
@@ -250,38 +271,49 @@ body{
   flex:0 0 auto;
   width:100%;
   display:flex;justify-content:center;align-items:center;
-  padding:.4vh 4vw 1.2vh;
+  padding:.4vh 4% 1vh;
   z-index:1;
 }
 .footer-logo{
-  max-width:60%;
-  max-height:9vh;
+  display:block;
+  max-width:55%;
+  max-height:8vh;
+  width:auto;
+  height:auto;
   object-fit:contain;
   filter:drop-shadow(0 2px 8px rgba(0,0,0,.12));
 }
 
 /* ===== OVERLAYS ===== */
 .overlay{
-  position:fixed;inset:0;
-  width:100vw;height:100vh;
+  position:fixed;
+  top:0;left:0;
+  width:100%;
+  height:100%;
+  height:var(--vh-real);
   background:var(--cor-overlay-bg);
   display:flex;align-items:center;justify-content:center;
   z-index:100;
   opacity:0;visibility:hidden;
   transition:opacity .4s,visibility .4s;
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  overflow-y:auto;
+  overflow-x:hidden;
 }
 .overlay.visible{opacity:1;visibility:visible}
 
 .overlay-box{
   text-align:center;
-  padding:3.5vh 5vw;
+  padding:3vh 5%;
   border-radius:28px;
-  max-width:88vw;width:88vw;
+  max-width:90%;
+  width:90%;
+  max-height:90%;
+  overflow-y:auto;
   transform:scale(.85) translateY(30px);
   transition:transform .5s var(--bounce);
   box-shadow:0 12px 40px rgba(0,0,0,.18);
-  position:relative;overflow:hidden;
+  position:relative;
 }
 .overlay.visible .overlay-box{transform:scale(1) translateY(0)}
 
@@ -289,23 +321,26 @@ body{
 .overlay-win{background:var(--cor-overlay-win)}
 .overlay-timeout{background:var(--cor-overlay-timeout)}
 
-.overlay-emoji{font-size:clamp(3rem,10vw,6rem);margin-bottom:.6vh;animation:bounceIn .8s var(--bounce)}
+.overlay-emoji{font-size:clamp(2.5rem,8vw,5rem);margin-bottom:.6vh;animation:bounceIn .8s var(--bounce)}
 @keyframes bounceIn{0%{transform:scale(0)}50%{transform:scale(1.25)}70%{transform:scale(.9)}100%{transform:scale(1)}}
 
 .overlay-title{
   font-family:var(--fonte-titulo);
-  font-size:clamp(1.5rem,5vw,3rem);
+  font-size:clamp(1.3rem,4.5vw,2.6rem);
   font-weight:800;color:var(--cor-texto);
   margin-bottom:.6vh;line-height:1.2;
 }
 .overlay-msg{
-  font-size:clamp(.95rem,2.8vw,1.6rem);
+  font-size:clamp(.85rem,2.5vw,1.4rem);
   font-weight:600;color:rgba(74,25,66,.78);
-  line-height:1.5;margin-bottom:.6vh;
+  line-height:1.4;margin-bottom:.6vh;
 }
 .overlay-img{
-  max-width:55vw;max-height:14vh;
-  object-fit:contain;margin:.8vh auto;display:block;
+  max-width:50%;
+  max-height:12vh;
+  width:auto;
+  height:auto;
+  object-fit:contain;margin:.6vh auto;display:block;
   border-radius:var(--raio);
 }
 
@@ -319,9 +354,9 @@ body{
 @keyframes cFall{0%{opacity:1;transform:translateY(0) rotate(0) scale(1)}100%{opacity:0;transform:translateY(55vh) rotate(720deg) scale(.4)}}
 
 /* ===== AUTO-RESTART BAR ===== */
-.auto-bar{width:100%;height:5px;background:rgba(74,25,66,.12);border-radius:3px;margin-top:1.2vh;overflow:hidden}
+.auto-bar{width:100%;height:5px;background:rgba(74,25,66,.12);border-radius:3px;margin-top:1vh;overflow:hidden}
 .auto-progress{height:100%;background:var(--cor-primaria);border-radius:3px;transition:width 1s linear}
-.auto-text{font-size:.75rem;color:rgba(74,25,66,.45);margin-top:.4vh}
+.auto-text{font-size:.7rem;color:rgba(74,25,66,.45);margin-top:.3vh}
 
 /* ===== SHAKE ===== */
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}

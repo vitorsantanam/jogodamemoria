@@ -1,119 +1,73 @@
 /* ==========================================
-   CONFIGURAÇÃO DO JOGO DA VELHA
-   Altere os valores abaixo para personalizar!
+   CONFIGURAÇÃO – JOGO DA MEMÓRIA
+   Altere aqui para personalizar tudo!
    ========================================== */
 
 const CONFIG = {
 
   // ===== TIMER =====
-  // Tempo em segundos para cada partida
-  tempoPartida: 60,
-  // Segundos restantes para alerta amarelo
-  tempoAlerta: 15,
-  // Segundos restantes para alerta vermelho (pisca)
-  tempoCritico: 5,
+  tempoPartida: 60,       // segundos
+  tempoAlerta: 15,        // timer fica amarelo
+  tempoCritico: 5,        // timer fica vermelho e pulsa
 
-  // ===== DIFICULDADE DO COMPUTADOR =====
-  // "facil"   → o computador erra bastante (ideal para crianças)
-  // "medio"   → o computador joga razoável (recomendado)
-  // "dificil" → o computador joga quase perfeito
-  dificuldade: "facil",
+  // ===== CARTAS (6 PARES) =====
+  // Cada item = 1 par. Coloque o caminho da imagem.
+  // O número (label) é gerado automaticamente (1, 2, 3...).
+  // As cartas são embaralhadas a cada partida.
+  cartas: [
+    { imagem: "images/carta1.png" },   // Par 1
+    { imagem: "images/carta2.png" },   // Par 2
+    { imagem: "images/carta3.png" },   // Par 3
+    { imagem: "images/carta4.png" },   // Par 4
+    { imagem: "images/carta5.png" },   // Par 5
+    { imagem: "images/carta6.png" },   // Par 6
+  ],
 
-  // Tempo de resposta do computador em milissegundos
-  // (simula "pensando" para parecer mais natural)
-  tempoRespostaPC: 600,
-
-  // ===== MARCAS DO JOGADOR E COMPUTADOR =====
-  jogador: {
-    // Símbolo exibido no tabuleiro (emoji ou texto)
-    simbolo: "❤️",
-    // OU use uma imagem no lugar do símbolo:
-    // imagemMarca: "images/coracao.png",
-    imagemMarca: "",
-  },
-
-  computador: {
-    simbolo: "🌸",
-    // imagemMarca: "images/flor.png",
-    imagemMarca: "",
-  },
-
-  // ===== TEXTOS PERSONALIZÁVEIS =====
+  // ===== TEXTOS =====
   textos: {
-    // Cabeçalho
-    titulo: "Feliz Dia das Mães!",
-    subtitulo: "Toque para jogar e ganhe uma lembrancinha! 💐",
-    rodape: "Com carinho para as melhores mães! 💖",
-
-    // Tela inicial (attract screen)
-    inicioTitulo: "Feliz Dia das Mães!",
-    inicioMsg: "Jogue e ganhe uma lembrancinha especial!",
+    inicioTitulo: "Feliz Dia das Mulheres!",
+    inicioMsg: "Encontre todos os pares e ganhe uma lembrancinha!",
     inicioBotao: "Toque para Jogar!",
 
-    // Indicador de vez
-    suaVez: "Sua vez!",
-    pcPensando: "Pensando...",
-
-    // Vitória do jogador (ganhou lembrancinha!)
     vitoriaTitulo: "Parabéns, você ganhou! 🎉",
-    vitoriaMsg: "Você é demais! 🎁\nRetire sua lembrancinha especial!",
+    vitoriaMsg: "Você encontrou todos os pares! 🎁\nRetire sua lembrancinha especial!",
 
-    // Derrota (computador ganhou)
-    derrotaTitulo: "Quase lá! 😊",
-    derrotaMsg: "Não desista! Tente mais uma vez, você consegue! 💪",
-
-    // Empate
-    empateTitulo: "Empate! 🤝",
-    empateMsg: "Você jogou muito bem! Tente mais uma vez! 😊",
-
-    // Tempo esgotado
     tempoTitulo: "Que pena, o tempo acabou! ⏰",
     tempoMsg: "Mas não fique triste! 😊\nTente novamente, temos certeza que você consegue!",
   },
 
-  // ===== IMAGENS (caminhos relativos) =====
+  // ===== IMAGENS =====
   imagens: {
-    // Banner no topo (ex: arte do dia das mães do supermercado)
-    banner: "images/banner.png",
-    // Logo no rodapé (ex: logo do supermercado)
-    logo: "images/logo.png",
-    // Imagem exibida na tela de vitória
-    vitoria: "images/vitoria.png",
-    // Imagem exibida quando o tempo acaba
-    tempoEsgotado: "images/tempo_esgotado.png",
-    // Imagem da tela inicial
-    inicio: "images/banner.png",
+    banner: "images/banner.png",          // topo
+    logo: "images/logo.png",              // rodapé
+    vitoria: "images/vitoria.png",        // overlay vitória
+    tempoEsgotado: "images/tempo_esgotado.png", // overlay timeout
+    inicio: "images/banner.png",          // overlay inicial
   },
 
   // ===== PARTÍCULAS DECORATIVAS =====
   particulas: {
     ativas: true,
-    quantidade: 20,
-    // Emojis que flutuam no fundo
+    quantidade: 18,
     emojis: ["❤️", "🌸", "🌷", "💐", "💖", "🌺", "✨", "🦋"],
   },
 
-  // ===== SONS (opcional - caminhos para arquivos de áudio) =====
+  // ===== SONS (opcional) =====
   sons: {
-    jogada: "",        // Ex: "sounds/click.mp3"
-    vitoria: "",       // Ex: "sounds/win.mp3"
-    derrota: "",       // Ex: "sounds/lose.mp3"
-    empate: "",        // Ex: "sounds/draw.mp3"
-    tempoAcabou: "",   // Ex: "sounds/timeout.mp3"
-    tick: "",          // Ex: "sounds/tick.mp3" (últimos segundos)
+    flip: "",          // Ex: "sounds/flip.mp3"
+    match: "",         // Ex: "sounds/match.mp3"
+    noMatch: "",       // Ex: "sounds/fail.mp3"
+    vitoria: "",
+    tempoAcabou: "",
+    tick: "",
   },
 
   // ===== TELA INICIAL =====
-  // Mostrar tela de boas-vindas antes de iniciar o jogo?
   mostrarTelaInicial: true,
 
   // ===== AUTO RESTART =====
-  // Reiniciar automaticamente após X segundos nos overlays (0 = desativado)
-  // Ideal para totens sem supervisão
-  autoRestartSegundos: 15,
+  autoRestartSegundos: 15,   // 0 = desativado
 
-  // ===== IDLE / ATTRACT MODE =====
-  // Tempo em segundos sem interação para voltar à tela inicial (0 = desativado)
-  // Ideal para totens - volta à tela de boas-vindas se ninguém mexer
-  idleTimeoutSegundos: 120,
+  // ===== IDLE (volta à tela inicial se ninguém jogar) =====
+  idleTimeoutSegundos: 120,  // 0 = desativado
 };

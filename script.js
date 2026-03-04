@@ -1,674 +1,369 @@
 /* ==========================================
-   JOGO DA VELHA - LÓGICA SINGLE-PLAYER
-   Dia das Mães - Interativo para Totem
-   Jogador vs Computador
+   JOGO DA MEMÓRIA – LÓGICA
+   6 pares, embaralhamento, timer, single-player
    ========================================== */
 
-// ===== ESTADO DO JOGO =====
-let gameState = {
-  board: Array(9).fill(null),
-  isGameOver: false,
-  isPlayerTurn: true,
+// ===== ESTADO =====
+const state = {
+  cards: [],          // array embaralhado de {id, pairId, image, label}
+  flipped: [],        // índices abertos no momento (máx 2)
+  matched: 0,         // pares encontrados
+  totalPairs: 0,
+  locked: false,      // bloqueia cliques durante animação
   timeLeft: CONFIG.tempoPartida,
   timerInterval: null,
-  moveCount: 0,
   gameStarted: false,
-  autoRestartTimeout: null,
-  idleTimeout: null,
+  autoTimeout: null,
   lastInteraction: Date.now(),
 };
 
-// Combinações de vitória
-const WIN_COMBOS = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8], // linhas
-  [0, 3, 6], [1, 4, 7], [2, 5, 8], // colunas
-  [0, 4, 8], [2, 4, 6],             // diagonais
-];
+// ===== DOM =====
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 
-// ===== ELEMENTOS DOM =====
 const DOM = {
-  board: document.getElementById("board"),
-  cells: document.querySelectorAll(".cell"),
-  timerText: document.getElementById("timerText"),
-  timerProgress: document.getElementById("timerProgress"),
-  turnLabel: document.getElementById("turnLabel"),
-  turnSymbol: document.getElementById("turnSymbol"),
-  turnIndicator: document.getElementById("turnIndicator"),
-  overlayStart: document.getElementById("overlayStart"),
-  overlayWin: document.getElementById("overlayWin"),
-  overlayLose: document.getElementById("overlayLose"),
-  overlayDraw: document.getElementById("overlayDraw"),
-  overlayTimeout: document.getElementById("overlayTimeout"),
-  winTitle: document.getElementById("winTitle"),
-  winMessage: document.getElementById("winMessage"),
-  winImage: document.getElementById("winImage"),
-  loseTitle: document.getElementById("loseTitle"),
-  loseMessage: document.getElementById("loseMessage"),
-  drawTitle: document.getElementById("drawTitle"),
-  drawMessage: document.getElementById("drawMessage"),
-  timeoutTitle: document.getElementById("timeoutTitle"),
-  timeoutMessage: document.getElementById("timeoutMessage"),
-  timeoutImage: document.getElementById("timeoutImage"),
-  startTitle: document.getElementById("startTitle"),
-  startMessage: document.getElementById("startMessage"),
-  startImage: document.getElementById("startImage"),
-  startIcon: document.getElementById("startIcon"),
-  winLineSvg: document.getElementById("winLineSvg"),
-  winLine: document.getElementById("winLine"),
-  confetti: document.getElementById("confetti"),
-  particles: document.getElementById("particles"),
-  bannerImage: document.getElementById("bannerImage"),
-  footerLogo: document.getElementById("footerLogo"),
-  footerText: document.getElementById("footerText"),
-  gameTitle: document.getElementById("gameTitle"),
-  gameSubtitle: document.getElementById("gameSubtitle"),
+  board: $('#board'),
+  timerText: $('#timerText'),
+  timerProgress: $('#timerProgress'),
+  overlayStart: $('#overlayStart'),
+  overlayWin: $('#overlayWin'),
+  overlayTimeout: $('#overlayTimeout'),
+  confetti: $('#confetti'),
+  particles: $('#particles'),
+  bannerImage: $('#bannerImage'),
+  footerLogo: $('#footerLogo'),
+  startTitle: $('#startTitle'),
+  startMsg: $('#startMsg'),
+  startImg: $('#startImg'),
+  winTitle: $('#winTitle'),
+  winMsg: $('#winMessage') || $('#winMsg'),
+  winImg: $('#winImg'),
+  timeoutTitle: $('#timeoutTitle'),
+  timeoutMsg: $('#timeoutMsg'),
+  timeoutImg: $('#timeoutImg'),
 };
 
-// ===== INICIALIZAÇÃO =====
+// ===== INIT =====
 function init() {
   applyConfig();
-  setupEventListeners();
   createParticles();
-  setupIdleWatcher();
-
+  setupIdle();
   if (CONFIG.mostrarTelaInicial) {
-    showOverlay(DOM.overlayStart);
+    show(DOM.overlayStart);
   } else {
     startGame();
   }
 }
 
-// ===== APLICAR CONFIGURAÇÕES =====
+// ===== APLICAR CONFIGURAÇÃO =====
 function applyConfig() {
-  // Textos do cabeçalho
-  DOM.gameTitle.textContent = CONFIG.textos.titulo;
-  DOM.gameSubtitle.textContent = CONFIG.textos.subtitulo;
-  DOM.footerText.textContent = CONFIG.textos.rodape;
+  const t = CONFIG.textos;
+  if (DOM.startTitle) DOM.startTitle.textContent = t.inicioTitulo;
+  if (DOM.startMsg) DOM.startMsg.textContent = t.inicioMsg;
+  if (DOM.winTitle) DOM.winTitle.textContent = t.vitoriaTitulo;
+  const winMsgEl = $('#winMsg');
+  if (winMsgEl) winMsgEl.innerHTML = t.vitoriaMsg.replace(/\n/g, '<br>');
+  if (DOM.timeoutTitle) DOM.timeoutTitle.textContent = t.tempoTitulo;
+  if (DOM.timeoutMsg) DOM.timeoutMsg.innerHTML = t.tempoMsg.replace(/\n/g, '<br>');
 
-  // Tela inicial
-  DOM.startTitle.textContent = CONFIG.textos.inicioTitulo;
-  DOM.startMessage.textContent = CONFIG.textos.inicioMsg;
+  const img = CONFIG.imagens;
+  if (img.banner && DOM.bannerImage) DOM.bannerImage.src = img.banner;
+  if (img.logo && DOM.footerLogo) DOM.footerLogo.src = img.logo;
+  if (img.vitoria && DOM.winImg) DOM.winImg.src = img.vitoria;
+  if (img.tempoEsgotado && DOM.timeoutImg) DOM.timeoutImg.src = img.tempoEsgotado;
+  if (img.inicio && DOM.startImg) DOM.startImg.src = img.inicio;
 
-  // Imagens
-  if (CONFIG.imagens.banner) DOM.bannerImage.src = CONFIG.imagens.banner;
-  if (CONFIG.imagens.logo) DOM.footerLogo.src = CONFIG.imagens.logo;
-  if (CONFIG.imagens.vitoria) DOM.winImage.src = CONFIG.imagens.vitoria;
-  if (CONFIG.imagens.tempoEsgotado) DOM.timeoutImage.src = CONFIG.imagens.tempoEsgotado;
-  if (CONFIG.imagens.inicio) DOM.startImage.src = CONFIG.imagens.inicio;
-
-  // Textos dos overlays
-  DOM.winTitle.textContent = CONFIG.textos.vitoriaTitulo;
-  DOM.winMessage.innerHTML = CONFIG.textos.vitoriaMsg.replace(/\n/g, "<br>");
-  DOM.loseTitle.textContent = CONFIG.textos.derrotaTitulo;
-  DOM.loseMessage.innerHTML = CONFIG.textos.derrotaMsg.replace(/\n/g, "<br>");
-  DOM.drawTitle.textContent = CONFIG.textos.empateTitulo;
-  DOM.drawMessage.innerHTML = CONFIG.textos.empateMsg.replace(/\n/g, "<br>");
-  DOM.timeoutTitle.textContent = CONFIG.textos.tempoTitulo;
-  DOM.timeoutMessage.innerHTML = CONFIG.textos.tempoMsg.replace(/\n/g, "<br>");
-
-  // Timer display
   DOM.timerText.textContent = CONFIG.tempoPartida;
 }
 
-// ===== EVENT LISTENERS =====
-function setupEventListeners() {
-  DOM.cells.forEach((cell) => {
-    cell.addEventListener("click", () => handleCellClick(cell));
-    cell.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      handleCellClick(cell);
-    }, { passive: false });
+// ===== CONSTRUIR CARTAS =====
+function buildCards() {
+  const pairs = CONFIG.cartas;
+  state.totalPairs = pairs.length;
+  const deck = [];
+
+  pairs.forEach((p, i) => {
+    const label = i + 1;            // numeração 1, 2, 3...
+    // Duas cartas por par
+    deck.push({ id: i * 2,     pairId: i, image: p.imagem, label });
+    deck.push({ id: i * 2 + 1, pairId: i, image: p.imagem, label });
   });
 
-  // Rastrear interação para idle mode
-  document.addEventListener("touchstart", registerInteraction, { passive: true });
-  document.addEventListener("click", registerInteraction);
+  // Embaralhar (Fisher-Yates)
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+
+  state.cards = deck;
 }
 
-// ===== COMEÇAR O JOGO =====
+// ===== RENDERIZAR TABULEIRO =====
+function renderBoard() {
+  DOM.board.innerHTML = '';
+
+  state.cards.forEach((card, idx) => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.dataset.index = idx;
+
+    el.innerHTML = `
+      <div class="card-inner">
+        <div class="card-face card-back">
+          <span class="card-back-label">${card.label}</span>
+        </div>
+        <div class="card-face card-front">
+          <img src="${card.image}" alt="Carta ${card.label}"
+               onerror="this.onerror=null;this.outerHTML='<span style=font-size:clamp(2rem,6vw,4rem)>🌸</span>'">
+        </div>
+      </div>
+    `;
+
+    el.addEventListener('click', () => handleFlip(idx));
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); handleFlip(idx); }, { passive: false });
+    DOM.board.appendChild(el);
+  });
+}
+
+// ===== INICIAR JOGO =====
 function startGame() {
-  hideAllOverlays();
-  clearAutoRestart();
-  resetBoard();
-  gameState.gameStarted = true;
-  gameState.isPlayerTurn = true;
-  updateTurnDisplay();
+  hideAll();
+  clearAuto();
+  buildCards();
+  renderBoard();
+  state.matched = 0;
+  state.flipped = [];
+  state.locked = false;
+  state.gameStarted = true;
+  state.timeLeft = CONFIG.tempoPartida;
   startTimer();
-  registerInteraction();
+  interact();
 }
 
-// ===== CLIQUE NA CÉLULA =====
-function handleCellClick(cell) {
-  registerInteraction();
-
-  const index = parseInt(cell.dataset.index);
-
-  // Só joga se for vez do jogador, célula vazia e jogo não acabou
-  if (!gameState.isPlayerTurn || gameState.board[index] !== null || gameState.isGameOver || !gameState.gameStarted) return;
-
-  // Fazer a jogada do jogador
-  makeMove(index, "X");
-
-  // Verificar vitória do jogador
-  const winCombo = checkWin("X");
-  if (winCombo) {
-    handlePlayerWin(winCombo);
-    return;
-  }
-
-  // Verificar empate
-  if (gameState.moveCount === 9) {
-    handleDraw();
-    return;
-  }
-
-  // Vez do computador
-  gameState.isPlayerTurn = false;
-  updateTurnDisplay();
-  DOM.board.classList.add("locked");
-
-  setTimeout(() => {
-    if (!gameState.isGameOver) {
-      computerMove();
-    }
-  }, CONFIG.tempoRespostaPC);
-}
-
-// ===== FAZER JOGADA =====
-function makeMove(index, player) {
-  gameState.board[index] = player;
-  gameState.moveCount++;
-
-  const cell = DOM.cells[index];
-  cell.classList.add("taken");
-
-  const mark = document.createElement("div");
-  const config = player === "X" ? CONFIG.jogador : CONFIG.computador;
-
-  if (config.imagemMarca) {
-    mark.className = `mark mark-${player.toLowerCase()}`;
-    mark.innerHTML = `<img src="${config.imagemMarca}" alt="${player}">`;
-  } else {
-    mark.className = `mark mark-${player.toLowerCase()}`;
-    mark.textContent = config.simbolo;
-  }
-
-  cell.appendChild(mark);
-  playSound("jogada");
-}
-
-// ===== JOGADA DO COMPUTADOR =====
-function computerMove() {
-  if (gameState.isGameOver) return;
-
-  let index;
-
-  switch (CONFIG.dificuldade) {
-    case "facil":
-      index = getEasyMove();
-      break;
-    case "dificil":
-      index = getBestMove();
-      break;
-    case "medio":
-    default:
-      index = Math.random() < 0.55 ? getBestMove() : getRandomMove();
-      break;
-  }
-
-  if (index !== null && index !== undefined) {
-    makeMove(index, "O");
-
-    // Verificar vitória do computador
-    const winCombo = checkWin("O");
-    if (winCombo) {
-      handleComputerWin(winCombo);
-      return;
-    }
-
-    // Verificar empate
-    if (gameState.moveCount === 9) {
-      handleDraw();
-      return;
-    }
-
-    // Devolver vez ao jogador
-    gameState.isPlayerTurn = true;
-    DOM.board.classList.remove("locked");
-    updateTurnDisplay();
-  }
-}
-
-// ===== IA: JOGADA FÁCIL (prioriza bloqueio, mas erra) =====
-function getEasyMove() {
-  // 30% chance de jogar aleatório puro
-  if (Math.random() < 0.3) return getRandomMove();
-
-  // Tenta bloquear jogador se possível
-  const blockMove = findWinningMove("X");
-  if (blockMove !== null && Math.random() < 0.7) return blockMove;
-
-  return getRandomMove();
-}
-
-// ===== IA: JOGADA ALEATÓRIA =====
-function getRandomMove() {
-  const available = gameState.board
-    .map((v, i) => (v === null ? i : null))
-    .filter((v) => v !== null);
-  return available[Math.floor(Math.random() * available.length)];
-}
-
-// ===== IA: ENCONTRAR JOGADA VENCEDORA =====
-function findWinningMove(player) {
-  for (let i = 0; i < 9; i++) {
-    if (gameState.board[i] === null) {
-      gameState.board[i] = player;
-      if (checkWinBoard(gameState.board, player)) {
-        gameState.board[i] = null;
-        return i;
-      }
-      gameState.board[i] = null;
-    }
-  }
-  return null;
-}
-
-// ===== IA: MINIMAX (modo difícil) =====
-function getBestMove() {
-  // Primeiro: tenta vencer
-  const winMove = findWinningMove("O");
-  if (winMove !== null) return winMove;
-
-  // Segundo: bloqueia jogador
-  const blockMove = findWinningMove("X");
-  if (blockMove !== null) return blockMove;
-
-  // Terceiro: minimax
-  let bestScore = -Infinity;
-  let bestMove = null;
-
-  for (let i = 0; i < 9; i++) {
-    if (gameState.board[i] === null) {
-      gameState.board[i] = "O";
-      const score = minimax(gameState.board, 0, false);
-      gameState.board[i] = null;
-      if (score > bestScore) {
-        bestScore = score;
-        bestMove = i;
-      }
-    }
-  }
-  return bestMove;
-}
-
-function minimax(board, depth, isMaximizing) {
-  if (checkWinBoard(board, "O")) return 10 - depth;
-  if (checkWinBoard(board, "X")) return depth - 10;
-  if (board.every((cell) => cell !== null)) return 0;
-
-  if (isMaximizing) {
-    let best = -Infinity;
-    for (let i = 0; i < 9; i++) {
-      if (board[i] === null) {
-        board[i] = "O";
-        best = Math.max(best, minimax(board, depth + 1, false));
-        board[i] = null;
-      }
-    }
-    return best;
-  } else {
-    let best = Infinity;
-    for (let i = 0; i < 9; i++) {
-      if (board[i] === null) {
-        board[i] = "X";
-        best = Math.min(best, minimax(board, depth + 1, true));
-        board[i] = null;
-      }
-    }
-    return best;
-  }
-}
-
-function checkWinBoard(board, player) {
-  return WIN_COMBOS.some((combo) => combo.every((i) => board[i] === player));
-}
-
-// ===== ATUALIZAR DISPLAY DE VEZ =====
-function updateTurnDisplay() {
-  if (gameState.isPlayerTurn) {
-    DOM.turnLabel.textContent = CONFIG.textos.suaVez;
-    DOM.turnLabel.classList.remove("waiting");
-    DOM.turnSymbol.textContent = CONFIG.jogador.simbolo;
-    DOM.turnSymbol.style.animation = "turnBounce 1s ease-in-out infinite";
-  } else {
-    DOM.turnLabel.textContent = CONFIG.textos.pcPensando;
-    DOM.turnLabel.classList.add("waiting");
-    DOM.turnSymbol.textContent = CONFIG.computador.simbolo;
-    DOM.turnSymbol.style.animation = "none";
-  }
-}
-
-// ===== VERIFICAR VITÓRIA =====
-function checkWin(player) {
-  for (const combo of WIN_COMBOS) {
-    if (combo.every((i) => gameState.board[i] === player)) {
-      return combo;
-    }
-  }
-  return null;
-}
-
-// ===== VITÓRIA DO JOGADOR =====
-function handlePlayerWin(combo) {
-  gameState.isGameOver = true;
+// ===== RECOMEÇAR =====
+function restartGame() {
   stopTimer();
+  hideAll();
+  clearAuto();
+  startGame();
+}
 
-  // Destacar células vencedoras
-  combo.forEach((i) => DOM.cells[i].classList.add("win-cell"));
-  drawWinLine(combo);
+// ===== FLIP =====
+function handleFlip(idx) {
+  interact();
+  if (state.locked || !state.gameStarted) return;
 
+  const cardEl = DOM.board.children[idx];
+  if (!cardEl || cardEl.classList.contains('flipped') || cardEl.classList.contains('matched')) return;
+  if (state.flipped.length >= 2) return;
+
+  // Abrir carta
+  cardEl.classList.add('flipped');
+  state.flipped.push(idx);
+  playSound('flip');
+
+  if (state.flipped.length === 2) {
+    state.locked = true;
+    checkMatch();
+  }
+}
+
+// ===== CHECAR PAR =====
+function checkMatch() {
+  const [a, b] = state.flipped;
+  const cardA = state.cards[a];
+  const cardB = state.cards[b];
+  const elA = DOM.board.children[a];
+  const elB = DOM.board.children[b];
+
+  if (cardA.pairId === cardB.pairId) {
+    // Match!
+    setTimeout(() => {
+      elA.classList.add('matched');
+      elB.classList.add('matched');
+      state.matched++;
+      state.flipped = [];
+      state.locked = false;
+      playSound('match');
+
+      if (state.matched === state.totalPairs) {
+        handleWin();
+      }
+    }, 400);
+  } else {
+    // Não é par — fechar após delay
+    setTimeout(() => {
+      elA.classList.remove('flipped');
+      elB.classList.remove('flipped');
+      state.flipped = [];
+      state.locked = false;
+      playSound('noMatch');
+    }, 800);
+  }
+}
+
+// ===== VITÓRIA =====
+function handleWin() {
+  state.gameStarted = false;
+  stopTimer();
   setTimeout(() => {
-    showOverlay(DOM.overlayWin);
+    show(DOM.overlayWin);
     createConfetti();
-    playSound("vitoria");
-    setupAutoRestart();
-  }, 800);
-}
-
-// ===== DERROTA DO JOGADOR =====
-function handleComputerWin(combo) {
-  gameState.isGameOver = true;
-  stopTimer();
-
-  combo.forEach((i) => DOM.cells[i].classList.add("win-cell"));
-  drawWinLine(combo);
-
-  setTimeout(() => {
-    showOverlay(DOM.overlayLose);
-    playSound("derrota");
-    setupAutoRestart();
-  }, 800);
-}
-
-// ===== EMPATE =====
-function handleDraw() {
-  gameState.isGameOver = true;
-  stopTimer();
-
-  setTimeout(() => {
-    showOverlay(DOM.overlayDraw);
-    playSound("empate");
-    setupAutoRestart();
-  }, 400);
+    playSound('vitoria');
+    autoRestart();
+  }, 500);
 }
 
 // ===== TEMPO ESGOTADO =====
 function handleTimeout() {
-  gameState.isGameOver = true;
+  state.gameStarted = false;
+  state.locked = true;
   stopTimer();
 
-  DOM.board.classList.add("shake");
-  setTimeout(() => DOM.board.classList.remove("shake"), 600);
+  DOM.board.classList.add('shake');
+  setTimeout(() => DOM.board.classList.remove('shake'), 500);
 
   setTimeout(() => {
-    showOverlay(DOM.overlayTimeout);
-    playSound("tempoAcabou");
-    setupAutoRestart();
-  }, 700);
+    show(DOM.overlayTimeout);
+    playSound('tempoAcabou');
+    autoRestart();
+  }, 600);
 }
 
 // ===== TIMER =====
 function startTimer() {
-  gameState.timeLeft = CONFIG.tempoPartida;
   updateTimerDisplay();
-
-  gameState.timerInterval = setInterval(() => {
-    gameState.timeLeft--;
+  state.timerInterval = setInterval(() => {
+    state.timeLeft--;
     updateTimerDisplay();
-
-    if (gameState.timeLeft <= CONFIG.tempoCritico) {
-      playSound("tick");
-    }
-
-    if (gameState.timeLeft <= 0) {
-      handleTimeout();
-    }
+    if (state.timeLeft <= CONFIG.tempoCritico) playSound('tick');
+    if (state.timeLeft <= 0) handleTimeout();
   }, 1000);
 }
 
 function stopTimer() {
-  if (gameState.timerInterval) {
-    clearInterval(gameState.timerInterval);
-    gameState.timerInterval = null;
-  }
+  clearInterval(state.timerInterval);
+  state.timerInterval = null;
 }
 
 function updateTimerDisplay() {
-  const time = Math.max(0, gameState.timeLeft);
-  DOM.timerText.textContent = time;
+  const t = Math.max(0, state.timeLeft);
+  DOM.timerText.textContent = t;
 
-  // Progresso circular
-  const total = CONFIG.tempoPartida;
-  const circumference = 2 * Math.PI * 54;
-  const offset = circumference * (1 - time / total);
-  DOM.timerProgress.style.strokeDashoffset = offset;
+  const circ = 2 * Math.PI * 54;
+  DOM.timerProgress.style.strokeDashoffset = circ * (1 - t / CONFIG.tempoPartida);
 
-  // Classes de alerta
-  DOM.timerProgress.classList.remove("warning", "danger");
-  if (time <= CONFIG.tempoCritico) {
-    DOM.timerProgress.classList.add("danger");
-  } else if (time <= CONFIG.tempoAlerta) {
-    DOM.timerProgress.classList.add("warning");
-  }
-}
-
-// ===== LINHA DE VITÓRIA =====
-function drawWinLine(combo) {
-  const cellSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tamanho-celula'));
-  const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gap-celula'));
-  const step = cellSize + gap;
-  const half = cellSize / 2;
-
-  const getPos = (i) => ({
-    x: (i % 3) * step + half,
-    y: Math.floor(i / 3) * step + half,
-  });
-
-  const start = getPos(combo[0]);
-  const end = getPos(combo[2]);
-
-  DOM.winLine.setAttribute("x1", start.x);
-  DOM.winLine.setAttribute("y1", start.y);
-  DOM.winLine.setAttribute("x2", end.x);
-  DOM.winLine.setAttribute("y2", end.y);
-  DOM.winLineSvg.style.display = "block";
+  DOM.timerProgress.classList.remove('warn', 'danger');
+  if (t <= CONFIG.tempoCritico) DOM.timerProgress.classList.add('danger');
+  else if (t <= CONFIG.tempoAlerta) DOM.timerProgress.classList.add('warn');
 }
 
 // ===== OVERLAYS =====
-function showOverlay(overlay) {
-  overlay.classList.add("visible");
-}
-
-function hideAllOverlays() {
-  [DOM.overlayStart, DOM.overlayWin, DOM.overlayLose, DOM.overlayDraw, DOM.overlayTimeout].forEach(o => {
-    if (o) o.classList.remove("visible");
-  });
-}
-
-// ===== REINICIAR JOGO =====
-function restartGame() {
-  hideAllOverlays();
-  clearAutoRestart();
-  resetBoard();
-  gameState.gameStarted = true;
-  gameState.isPlayerTurn = true;
-  DOM.board.classList.remove("locked");
-  updateTurnDisplay();
-  startTimer();
-  registerInteraction();
-}
-
-function resetBoard() {
-  stopTimer();
-
-  gameState.board = Array(9).fill(null);
-  gameState.isGameOver = false;
-  gameState.moveCount = 0;
-  gameState.isPlayerTurn = true;
-
-  // Limpar tabuleiro visual
-  DOM.cells.forEach((cell) => {
-    cell.classList.remove("taken", "win-cell");
-    cell.innerHTML = "";
-  });
-
-  // Esconder linha de vitória
-  DOM.winLineSvg.style.display = "none";
-
-  // Limpar confetti
-  if (DOM.confetti) DOM.confetti.innerHTML = "";
-
-  // Reset timer display
-  DOM.timerText.textContent = CONFIG.tempoPartida;
-  DOM.timerProgress.style.strokeDashoffset = 0;
-  DOM.timerProgress.classList.remove("warning", "danger");
+function show(el) { if (el) el.classList.add('visible'); }
+function hide(el) { if (el) el.classList.remove('visible'); }
+function hideAll() {
+  [DOM.overlayStart, DOM.overlayWin, DOM.overlayTimeout].forEach(hide);
 }
 
 // ===== AUTO RESTART =====
-function setupAutoRestart() {
+function autoRestart() {
   if (CONFIG.autoRestartSegundos <= 0) return;
+  const secs = CONFIG.autoRestartSegundos;
+  const box = document.querySelector('.overlay.visible .overlay-box');
+  if (!box) return;
 
-  const seconds = CONFIG.autoRestartSegundos;
+  // Remove anterior
+  box.querySelectorAll('.auto-bar,.auto-text').forEach(e => e.remove());
 
-  // Adicionar barra de progresso e texto no overlay visível
-  const visibleOverlay = document.querySelector(".overlay.visible .overlay-content");
-  if (visibleOverlay) {
-    // Remover barra existente se houver
-    const existingBar = visibleOverlay.querySelector(".auto-restart-bar");
-    if (existingBar) existingBar.remove();
-    const existingText = visibleOverlay.querySelector(".auto-restart-text");
-    if (existingText) existingText.remove();
+  const bar = document.createElement('div');
+  bar.className = 'auto-bar';
+  const prog = document.createElement('div');
+  prog.className = 'auto-progress';
+  prog.style.width = '100%';
+  bar.appendChild(prog);
+  box.appendChild(bar);
 
-    const barWrapper = document.createElement("div");
-    barWrapper.className = "auto-restart-bar";
-    const barProgress = document.createElement("div");
-    barProgress.className = "auto-restart-progress";
-    barProgress.style.width = "100%";
-    barWrapper.appendChild(barProgress);
-    visibleOverlay.appendChild(barWrapper);
+  const txt = document.createElement('p');
+  txt.className = 'auto-text';
+  txt.textContent = `Reiniciando em ${secs}s...`;
+  box.appendChild(txt);
 
-    const text = document.createElement("p");
-    text.className = "auto-restart-text";
-    text.textContent = `Reiniciando em ${seconds}s...`;
-    visibleOverlay.appendChild(text);
+  let rem = secs;
+  const iv = setInterval(() => {
+    rem--;
+    if (rem <= 0) { clearInterval(iv); return; }
+    prog.style.width = ((rem / secs) * 100) + '%';
+    txt.textContent = `Reiniciando em ${rem}s...`;
+  }, 1000);
 
-    // Animar barra
-    let remaining = seconds;
-    const barInterval = setInterval(() => {
-      remaining--;
-      if (remaining <= 0) {
-        clearInterval(barInterval);
-        return;
-      }
-      barProgress.style.width = ((remaining / seconds) * 100) + "%";
-      text.textContent = `Reiniciando em ${remaining}s...`;
-    }, 1000);
-
-    // Agendar restart
-    gameState.autoRestartTimeout = setTimeout(() => {
-      clearInterval(barInterval);
-      restartGame();
-    }, seconds * 1000);
-  }
+  state.autoTimeout = setTimeout(() => { clearInterval(iv); restartGame(); }, secs * 1000);
 }
 
-function clearAutoRestart() {
-  if (gameState.autoRestartTimeout) {
-    clearTimeout(gameState.autoRestartTimeout);
-    gameState.autoRestartTimeout = null;
-  }
+function clearAuto() {
+  if (state.autoTimeout) { clearTimeout(state.autoTimeout); state.autoTimeout = null; }
 }
 
-// ===== IDLE / ATTRACT MODE =====
-function setupIdleWatcher() {
+// ===== IDLE =====
+function setupIdle() {
   if (CONFIG.idleTimeoutSegundos <= 0) return;
-
   setInterval(() => {
-    const elapsed = (Date.now() - gameState.lastInteraction) / 1000;
-    if (elapsed >= CONFIG.idleTimeoutSegundos && gameState.gameStarted) {
-      // Voltar à tela inicial
-      gameState.gameStarted = false;
-      hideAllOverlays();
-      clearAutoRestart();
-      resetBoard();
-      if (CONFIG.mostrarTelaInicial) {
-        showOverlay(DOM.overlayStart);
-      }
+    if ((Date.now() - state.lastInteraction) / 1000 >= CONFIG.idleTimeoutSegundos && state.gameStarted) {
+      state.gameStarted = false;
+      stopTimer(); hideAll(); clearAuto();
+      if (CONFIG.mostrarTelaInicial) show(DOM.overlayStart);
     }
   }, 5000);
 }
 
-function registerInteraction() {
-  gameState.lastInteraction = Date.now();
-}
+function interact() { state.lastInteraction = Date.now(); }
+document.addEventListener('touchstart', interact, { passive: true });
+document.addEventListener('click', interact);
 
 // ===== CONFETTI =====
 function createConfetti() {
-  const colors = ["#e91e63", "#f06292", "#ce93d8", "#ff80ab", "#f48fb1", "#ffb74d", "#fff176", "#81c784"];
-  const container = DOM.confetti;
-  container.innerHTML = "";
-
-  for (let i = 0; i < 80; i++) {
-    const piece = document.createElement("div");
-    piece.className = "confetti-piece";
-    piece.style.left = Math.random() * 100 + "%";
-    piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    piece.style.animationDuration = (Math.random() * 2 + 1.5) + "s";
-    piece.style.animationDelay = Math.random() * 1 + "s";
-    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
-    container.appendChild(piece);
+  const colors = ['#e91e63','#f06292','#ce93d8','#ff80ab','#f48fb1','#ffb74d','#fff176','#81c784'];
+  const c = DOM.confetti; if (!c) return;
+  c.innerHTML = '';
+  for (let i = 0; i < 70; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = Math.random()*100+'%';
+    p.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+    p.style.animationDuration = (Math.random()*2+1.5)+'s';
+    p.style.animationDelay = Math.random()*1+'s';
+    c.appendChild(p);
   }
 }
 
-// ===== PARTÍCULAS DECORATIVAS =====
+// ===== PARTÍCULAS =====
 function createParticles() {
   if (!CONFIG.particulas.ativas) return;
-
-  const container = DOM.particles;
-  container.innerHTML = "";
-  const emojis = CONFIG.particulas.emojis;
-
+  const c = DOM.particles; if (!c) return;
+  c.innerHTML = '';
+  const em = CONFIG.particulas.emojis;
   for (let i = 0; i < CONFIG.particulas.quantidade; i++) {
-    const p = document.createElement("div");
-    p.className = "particle";
-    p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-    p.style.left = Math.random() * 100 + "%";
-    p.style.fontSize = (Math.random() * 20 + 18) + "px";
-    p.style.animationDuration = (Math.random() * 15 + 10) + "s";
-    p.style.animationDelay = (Math.random() * 20) + "s";
-    container.appendChild(p);
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = em[Math.floor(Math.random()*em.length)];
+    p.style.left = Math.random()*100+'%';
+    p.style.fontSize = (Math.random()*14+14)+'px';
+    p.style.animationDuration = (Math.random()*15+10)+'s';
+    p.style.animationDelay = (Math.random()*20)+'s';
+    c.appendChild(p);
   }
 }
 
 // ===== SONS =====
-function playSound(type) {
-  const soundPath = CONFIG.sons[type];
-  if (!soundPath) return;
-
-  try {
-    const audio = new Audio(soundPath);
-    audio.volume = 0.5;
-    audio.play().catch(() => {});
-  } catch (e) {
-    // Silenciar erros de áudio
-  }
+function playSound(key) {
+  const src = CONFIG.sons[key];
+  if (!src) return;
+  try { const a = new Audio(src); a.volume = .5; a.play().catch(()=>{}); } catch(_){}
 }
 
-// ===== INICIAR QUANDO DOM PRONTO =====
-document.addEventListener("DOMContentLoaded", init);
+// ===== PREVENIR SCROLL / ZOOM =====
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
 
-// ===== PREVENIR SCROLL E ZOOM EM TOUCH =====
-document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
-document.addEventListener("gesturestart", (e) => e.preventDefault());
-document.addEventListener("gesturechange", (e) => e.preventDefault());
+// ===== START =====
+document.addEventListener('DOMContentLoaded', init);

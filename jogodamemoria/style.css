@@ -1,3 +1,20 @@
+.intruso-ok-feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.8);
+  font-size: 3.5rem;
+  color: #4caf50;
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 2px 8px rgba(76,175,80,.18));
+  animation: okPop .5s cubic-bezier(.68,-.55,.265,1.55);
+}
+@keyframes okPop {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  60% { transform: translate(-50%, -50%) scale(2.1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.8); opacity: 1; }
+}
 /* ==========================================
    JOGO DA MEMÓRIA – DIA DAS MULHERES
    Layout 100 % viewport (sem scroll, sem zoom)

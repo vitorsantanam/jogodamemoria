@@ -106,8 +106,31 @@ function handleEscolhaIntruso(item, el) {
   if (!stateIntruso.gameStarted) return;
   if (item.intruso) {
     stateIntruso.acertou = true;
-    stopTimerIntruso();
-    show(DOM_INTRUSO.overlayWin);
+    // Mostra símbolo de OK
+    const okDiv = document.createElement('div');
+    okDiv.className = 'intruso-ok-feedback';
+    okDiv.innerHTML = '✔️';
+    okDiv.style.position = 'absolute';
+    okDiv.style.top = '50%';
+    okDiv.style.left = '50%';
+    okDiv.style.transform = 'translate(-50%, -50%) scale(1.8)';
+    okDiv.style.fontSize = '3.5rem';
+    okDiv.style.color = '#4caf50';
+    okDiv.style.pointerEvents = 'none';
+    el.appendChild(okDiv);
+    // Desabilita cliques
+    Array.from(DOM_INTRUSO.board.children).forEach(child => child.style.pointerEvents = 'none');
+    setTimeout(() => {
+      okDiv.remove();
+      // Próxima fase ou vitória
+      if (stateIntruso.faseAtual < fases.length - 1) {
+        stateIntruso.faseAtual++;
+        renderFaseIntruso();
+      } else {
+        stopTimerIntruso();
+        show(DOM_INTRUSO.overlayWin);
+      }
+    }, 900);
   } else {
     el.classList.add('intruso-errado');
     setTimeout(() => {

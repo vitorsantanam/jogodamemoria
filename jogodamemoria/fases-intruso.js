@@ -19,7 +19,7 @@ const fasesIntruso = [
     { nome: '', imagem: 'imagens/maca.jpg', intruso: false },
     { nome: '', imagem: 'imagens/maca.jpg', intruso: false },
     { nome: '', imagem: 'imagens/maca.jpg', intruso: false },
-    { nome: '', imagem: 'imagens/carro.png', intruso: true }
+    { nome: '', imagem: 'imagens/carro.jpg', intruso: true }
   ],
   [
     { nome: '', imagem: 'imagens/maca.jpg', intruso: false },

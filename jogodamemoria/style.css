@@ -100,6 +100,7 @@ img{max-width:100%;height:auto}
   align-items:center;
   position:relative;
   overflow:hidden;
+  padding: 2vh 0; /* espaço em cima e embaixo */
 }
 
 /* ===== PARTÍCULAS ===== */
@@ -121,8 +122,8 @@ img{max-width:100%;height:auto}
 }
 .banner-img{
   display:block;
-  max-width:72%;
-  max-height:10vh;
+  max-width:85%;
+  max-height:14vh;
   width:auto;
   height:auto;
   object-fit:contain;
@@ -143,6 +144,7 @@ img{max-width:100%;height:auto}
   gap:0;
   padding:.6vh 0 .2vh;
   z-index:1;
+  margin-top: 2vh; /* aumenta/diminui aqui */
 }
 .timer-ring{
   position:relative;
@@ -441,18 +443,17 @@ img{max-width:100%;height:auto}
 
 @media (max-width: 768px) {
   .board-intruso {
-    width: 90vw;                 /* ocupa 90% da tela */
-    margin: 0 auto;              /* centraliza */
-    
+    width: 90vw;
+    margin: 0 auto;
+
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 2 colunas */
+    grid-template-columns: repeat(2, 1fr);
+    
     gap: 10px;
 
-    aspect-ratio: 1 / 1;         /* mantém proporção geral */
+    aspect-ratio: unset;   /* ❌ remove isso */
+    height: auto;          /* ✅ deixa o conteúdo mandar */
   }
-}
-
-@media (max-width: 768px) {
   .intruso-item {
     aspect-ratio: 1 / 1;   /* 🔥 quadrado perfeito */
     width: 100%;

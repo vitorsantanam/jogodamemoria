@@ -27,3 +27,5 @@ const CONFIG_INTRUSO = {
   autoRestartSegundos: 15,
   idleTimeoutSegundos: 120,
 };
+// Torna global para browser
+window.CONFIG_INTRUSO = CONFIG_INTRUSO;

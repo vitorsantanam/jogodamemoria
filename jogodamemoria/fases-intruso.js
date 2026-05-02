@@ -39,3 +39,5 @@ const fasesIntruso = [
 if (typeof module !== 'undefined') {
   module.exports = fasesIntruso;
 }
+// Torna global para browser
+window.fasesIntruso = fasesIntruso;

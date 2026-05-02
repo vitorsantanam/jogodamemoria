@@ -438,3 +438,27 @@ img{max-width:100%;height:auto}
 /* ===== ATTRACT FLOAT ===== */
 .overlay-start .overlay-emoji{animation:floatH 3s ease-in-out infinite}
 @keyframes floatH{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-10px) scale(1.08)}}
+
+@media (max-width: 768px) {
+  .board-intruso {
+    width: 90vw;                 /* ocupa 90% da tela */
+    margin: 0 auto;              /* centraliza */
+    
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 2 colunas */
+    gap: 10px;
+
+    aspect-ratio: 1 / 1;         /* mantém proporção geral */
+  }
+}
+
+@media (max-width: 768px) {
+  .intruso-item {
+    aspect-ratio: 1 / 1;   /* 🔥 quadrado perfeito */
+    width: 100%;
+    height: auto;
+
+    border-radius: 16px;
+    overflow: hidden;
+  }
+}

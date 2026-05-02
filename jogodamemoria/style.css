@@ -205,7 +205,7 @@ img{max-width:100%;height:auto}
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: clamp(10px, 2vw, 32px);
+  gap: clamp(6px, 1vw, 14px) clamp(10px, 2vw, 32px); /* gap vertical menor, horizontal igual */
   justify-content: center;
   align-items: center;
   margin: 0 auto;
